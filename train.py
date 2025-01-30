@@ -107,32 +107,50 @@ response_queue = mp.Queue()
 writer_process = Process(target=file_writer_process, args=(response_queue,))
 writer_process.start()
 
+# Reward functions
 def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [extract_xml_answer(r) for r in responses]
     q = prompts[0][-1]['content']
-    #print('-'*20, f"Question:\n{q}", f"\nAnswer:\n{answer[0]}", f"\nResponse:\n{responses[0]}", f"\nExtracted:\n{extracted_responses[0]}")
+    extracted_responses = [extract_xml_answer(r) for r in responses]
+    print('-'*20, f"Question:\n{q}", f"\nAnswer:\n{answer[0]}", f"\nResponse:\n{responses[0]}", f"\nExtracted:\n{extracted_responses[0]}")
     return [2.0 if r == a else 0.0 for r, a in zip(extracted_responses, answer)]
+
+def int_reward_func(completions, **kwargs) -> list[float]:
+    responses = [completion[0]['content'] for completion in completions]
+    extracted_responses = [extract_xml_answer(r) for r in responses]
+    return [0.5 if r.isdigit() else 0.0 for r in extracted_responses]
 
 def strict_format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>$"
+    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n$"
     responses = [completion[0]["content"] for completion in completions]
-    matches = [re.match(pattern, r) for r in responses]
-    reward = [0.5 if match else 0.0 for match in matches]
-    for r, m in zip(responses, reward):
-        print(f"response: {r} ...... \nstrict format reward: {m}")
-    return reward
+    matches = [re.match(pattern, r) for r in responses] 
+    return [0.5 if match else 0.0 for match in matches]
 
 def soft_format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
     pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
     responses = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, r) for r in responses] 
-    reward = [0.5 if match else 0.0 for match in matches]
-    for r, m in zip(responses, reward):
-        print(f"response: {r} ...... \nsoft format reward: {m}")
-    return reward
+    return [0.5 if match else 0.0 for match in matches]
+
+def count_xml(text) -> float:
+    count = 0.0
+    if text.count("<reasoning>\n") == 1:
+        count += 0.125
+    if text.count("\n</reasoning>\n") == 1:
+        count += 0.125
+    if text.count("\n<answer>\n") == 1:
+        count += 0.125
+        count -= len(text.split("\n</answer>\n")[-1])*0.001
+    if text.count("\n</answer>") == 1:
+        count += 0.125
+        count -= (len(text.split("\n</answer>")[-1]) - 1)*0.001
+    return count
+
+def xmlcount_reward_func(completions, **kwargs) -> list[float]:
+    contents = [completion[0]["content"] for completion in completions]
+    return [count_xml(c) for c in contents]
 
 # Add cleanup function to be called at end of training
 def cleanup_writer():
@@ -209,13 +227,13 @@ training_args = GRPOConfig(
     max_prompt_length=256,
     max_completion_length=786,
     num_train_epochs=5,
-    save_steps=1000,
+    save_steps=10000,
     max_grad_norm=0.1,
     report_to="wandb",
     log_on_each_node=False,
     use_vllm=True,  # Enable vLLM for faster generation
     vllm_device="cuda:1",
-    vllm_gpu_memory_utilization=0.5
+    vllm_gpu_memory_utilization=0.4
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
@@ -240,7 +258,9 @@ trainer = GRPOTrainer(
     reward_funcs=[
         soft_format_reward_func,
         strict_format_reward_func,
-        correctness_reward_func],
+        correctness_reward_func,
+        int_reward_func,
+        xmlcount_reward_func],
     args=training_args,
     train_dataset=train_dataset,
     callbacks=[TestEvalCallback(model, tokenizer, test_dataset)]
