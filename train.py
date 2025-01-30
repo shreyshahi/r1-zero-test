@@ -173,10 +173,10 @@ class TestEvalCallback(TrainerCallback):
         if state.global_step % 10 == 0:  # Every 10 steps
             evaluate_test_set(self.model, self.tokenizer, self.test_dataset, state.global_step)
 
-model_name = "qwen0.5"  # Path to local model folder
+model_name = "llama3b"  # Path to local model folder
 
-output_dir = "outputs/Qwen-0.5B-GRPO"
-run_name = "Qwen-0.5B-GRPO-gsm8k"
+output_dir = "outputs/Llama-3B-GRPO"
+run_name = "Llama-3B-GRPO-gsm8k"
     
 training_args = GRPOConfig(
     output_dir=output_dir,
