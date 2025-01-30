@@ -133,6 +133,9 @@ def evaluate_test_set(model, tokenizer, test_dataset, current_step):
         top_k=20,
     )
     
+    # Set a reasonable max_model_len when initializing vLLM
+    model.max_model_len = 4096  # or another appropriate value like 2048 or 8192
+    
     # Prepare all prompts for batch inference
     prompts = []
     question_ids = []
@@ -200,6 +203,7 @@ training_args = GRPOConfig(
     report_to="wandb",
     log_on_each_node=False,
     use_vllm=True,  # Enable vLLM for faster generation
+    max_model_len=4096,  # Add this line to set context length for training
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
