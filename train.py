@@ -203,6 +203,7 @@ training_args = GRPOConfig(
     report_to="wandb",
     log_on_each_node=False,
     use_vllm=True,  # Enable vLLM for faster generation
+    vllm_gpu_memory_utilization=0.8
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
