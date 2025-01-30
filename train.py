@@ -172,10 +172,10 @@ class TestEvalCallback(TrainerCallback):
         if state.global_step % 10 == 0 and hasattr(self.model, 'llm'):  # Check if vLLM is initialized
             evaluate_test_set(self.model, self.tokenizer, self.test_dataset, state.global_step)
 
-model_name = "llama3b"  # Path to local model folder
+model_name = "llama1b"  # Path to local model folder
 
-output_dir = "outputs/Llama-3B-GRPO"
-run_name = "Llama-3B-GRPO-gsm8k"
+output_dir = "outputs/Llama-1B-GRPO"
+run_name = "Llama-1B-GRPO-gsm8k"
     
 training_args = GRPOConfig(
     output_dir=output_dir,
@@ -190,17 +190,17 @@ training_args = GRPOConfig(
     bf16=True,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=4,
-    num_generations=4,
+    num_generations=16,
     max_prompt_length=256,
     max_completion_length=786,
     num_train_epochs=5,
-    save_steps=100,
+    save_steps=1000,
     max_grad_norm=0.1,
     report_to="wandb",
     log_on_each_node=False,
     use_vllm=True,  # Enable vLLM for faster generation
     vllm_device="cuda:1",
-    vllm_gpu_memory_utilization=0.4
+    vllm_gpu_memory_utilization=0.5
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
