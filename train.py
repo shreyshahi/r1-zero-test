@@ -210,9 +210,11 @@ model = AutoModelForCausalLM.from_pretrained(
     attn_implementation="flash_attention_2",
     device_map=None,
     trust_remote_code=True,  # Added for loading local model
-    max_model_len=4096,  # Add this line to set context length
 ).to("cuda")
-        
+
+# Set max_model_len after initialization
+model.max_model_len = 4096 
+
 tokenizer = AutoTokenizer.from_pretrained(
     model_name,
     trust_remote_code=True  # Added for loading local model
