@@ -13,7 +13,7 @@ from queue import Queue
 import multiprocessing as mp
 import boto3
 from datetime import datetime
-from trl.samplers import SamplingParams
+from vllm import SamplingParams
 
 SYSTEM_PROMPT = """
 Respond in the following format:

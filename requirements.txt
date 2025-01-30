@@ -1,7 +1,8 @@
+vllm
+boto3
 datasets
 flash_attn
 torch
 transformers
 trl
 wandb
-vllm
