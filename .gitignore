@@ -8,6 +8,7 @@ llama3b/
 llama1b/
 gsm8k/ 
 wandb/
+qwen0.5/
 
 # C extensions
 *.so

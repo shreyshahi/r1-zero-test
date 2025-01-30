@@ -2,7 +2,7 @@
 import re
 import torch
 from datasets import load_dataset, Dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, TrainerCallback
 from trl import GRPOConfig, GRPOTrainer
 import json
 import hashlib
@@ -13,9 +13,7 @@ from queue import Queue
 import multiprocessing as mp
 import boto3
 from datetime import datetime
-
-# copied and modified from https://gist.github.com/willccbb/4676755236bb08cab5f4e54a0475d6fb
-# Load and prep dataset
+from trl.samplers import SamplingParams
 
 SYSTEM_PROMPT = """
 Respond in the following format:
@@ -59,9 +57,10 @@ def get_gsm8k_questions(split = "train") -> Dataset:
     return data # type: ignore
 
 train_dataset = get_gsm8k_questions()
+test_dataset = get_gsm8k_questions(split="test")
 
 # Add these near the top of the file with other constants
-S3_BUCKET_NAME = "your-bucket-name"  # Replace with your bucket name
+S3_BUCKET_NAME = "gsm8k-grpo-training-traces"  # Replace with your bucket name
 S3_PREFIX = f"responses/{datetime.now().strftime('%Y%m%d_%H%M%S')}"  # Creates unique prefix for each run
 
 def file_writer_process(queue):
@@ -102,26 +101,8 @@ writer_process.start()
 
 def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     responses = [completion[0]['content'] for completion in completions]
-    questions = [prompt[-1]['content'] for prompt in prompts]
     extracted_responses = [extract_xml_answer(r) for r in responses]
-    
-    # Remove local file writing logic
-    current_step = kwargs.get('current_step', 0)
-    
-    # Queue data for writing to S3
-    for q, r, a, extracted in zip(questions, responses, answer, extracted_responses):
-        question_id = hashlib.md5(q.encode()).hexdigest()
-        data = {
-            "id": question_id,
-            "step": current_step,
-            "question": q,
-            "answer": a,
-            "response": r,
-            "extracted": extracted
-        }
-        # Send data to writer process (removed output_dir since we're using S3)
-        response_queue.put((None, current_step, question_id, data))
-    
+   
     return [2.0 if r == a else 0.0 for r, a in zip(extracted_responses, answer)]
 
 def strict_format_reward_func(completions, **kwargs) -> list[float]:
@@ -143,19 +124,68 @@ def cleanup_writer():
     response_queue.put("DONE")
     writer_process.join()
 
-model_name = "llama1b"  # Path to local model folder
+def evaluate_test_set(model, tokenizer, test_dataset, current_step):
+    """Use vLLM for efficient batch evaluation"""
+    sampling_params = SamplingParams(
+        max_tokens=786,
+        temperature=0.7,
+        top_p=0.8,
+        top_k=20,
+    )
+    
+    # Prepare all prompts for batch inference
+    prompts = []
+    question_ids = []
+    answers = []
+    for item in test_dataset:
+        prompt = tokenizer.apply_chat_template(item['prompt'], tokenize=False)
+        prompts.append(prompt)
+        question_ids.append(hashlib.md5(item['prompt'][-1]['content'].encode()).hexdigest())
+        answers.append(item['answer'])
+    
+    # Use model's vLLM engine for generation
+    outputs = model.generate_vllm(prompts, sampling_params)
+    
+    # Process outputs
+    for output, question_id, prompt, answer in zip(outputs, question_ids, prompts, answers):
+        response = output.outputs[0].text
+        extracted = extract_xml_answer(response)
+        
+        # Queue data for writing
+        data = {
+            "id": question_id,
+            "step": current_step,
+            "question": prompt,
+            "answer": answer,
+            "response": response,
+            "extracted": extracted,
+            "split": "test"
+        }
+        response_queue.put((None, current_step, question_id, data))
 
-output_dir = "outputs/Llama-1B-GRPO"
-run_name = "Llama-1B-GRPO-gsm8k"
+class TestEvalCallback(TrainerCallback):
+    def __init__(self, model, tokenizer, test_dataset):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.test_dataset = test_dataset
+    
+    def on_step_end(self, args, state, control, **kwargs):
+        if state.global_step % 10 == 0:  # Every 10 steps
+            evaluate_test_set(self.model, self.tokenizer, self.test_dataset, state.global_step)
+
+model_name = "qwen0.5"  # Path to local model folder
+
+output_dir = "outputs/Qwen-0.5B-GRPO"
+run_name = "Qwen-0.5B-GRPO-gsm8k"
     
 training_args = GRPOConfig(
     output_dir=output_dir,
     run_name=run_name,
     learning_rate=5e-6,
-    adam_beta1 = 0.9,
-    adam_beta2 = 0.99,
-    weight_decay = 0.1,
-    warmup_ratio = 0.1,
+    adam_beta1=0.9,
+    adam_beta2=0.99,
+    weight_decay=0.1,
+    warmup_ratio=0.1,
     lr_scheduler_type='cosine',
     logging_steps=1,
     bf16=True,
@@ -164,11 +194,12 @@ training_args = GRPOConfig(
     num_generations=16,
     max_prompt_length=256,
     max_completion_length=786,
-    num_train_epochs=1,
+    num_train_epochs=5,
     save_steps=100,
     max_grad_norm=0.1,
     report_to="wandb",
     log_on_each_node=False,
+    use_vllm=True,  # Enable vLLM for faster generation
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
@@ -193,6 +224,7 @@ trainer = GRPOTrainer(
         correctness_reward_func],
     args=training_args,
     train_dataset=train_dataset,
+    callbacks=[TestEvalCallback(model, tokenizer, test_dataset)]
 )
 
 try:
