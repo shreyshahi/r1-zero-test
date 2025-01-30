@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Models and datasets
+llama3b/
+llama1b/
+gsm8k/ 
+wandb/
+
 # C extensions
 *.so
 
