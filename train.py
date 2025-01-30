@@ -16,13 +16,16 @@ from datetime import datetime
 from vllm import SamplingParams
 
 SYSTEM_PROMPT = """
-Respond in the following format:
+Respond only in the following format:
 <reasoning>
 ...
 </reasoning>
 <answer>
 ...
 </answer>
+
+If you do not follow the format, you will be penalized.
+Put the final answer in the <answer> tag. Do not use \boxed{} or any other formatting.
 """
 
 XML_COT_FORMAT = """\
@@ -50,7 +53,12 @@ def get_gsm8k_questions(split = "train") -> Dataset:
     data = data.map(lambda x: { # type: ignore
         'prompt': [
             {'role': 'system', 'content': SYSTEM_PROMPT},
-            {'role': 'user', 'content': x['question']}
+            {'role': 'user', 'content': 'Use the format described in the system prompt to answer the following question: What is the largest single-digit prime number?'},
+            {'role': 'assistant', 'content': XML_COT_FORMAT.format(
+                reasoning="9 is divisble by 3 and 8 is divisible by 2, but 7 is prime.",
+                answer="7"
+            )},
+            {'role': 'user', 'content': f"Use the format described in the system prompt to answer the following question: {x['question']}"}
         ],
         'answer': extract_hash_answer(x['answer'])
     }) # type: ignore
