@@ -116,12 +116,12 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[floa
 
 def strict_format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n$"
+    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>$"
     responses = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, r) for r in responses]
     reward = [0.5 if match else 0.0 for match in matches]
     for r, m in zip(responses, reward):
-        print(f"response: {r} ...... reward: {m}")
+        print(f"response: {r} ...... \nstrict format reward: {m}")
     return reward
 
 def soft_format_reward_func(completions, **kwargs) -> list[float]:
@@ -130,6 +130,8 @@ def soft_format_reward_func(completions, **kwargs) -> list[float]:
     responses = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, r) for r in responses] 
     reward = [0.5 if match else 0.0 for match in matches]
+    for r, m in zip(responses, reward):
+        print(f"response: {r} ...... \nsoft format reward: {m}")
     return reward
 
 # Add cleanup function to be called at end of training
