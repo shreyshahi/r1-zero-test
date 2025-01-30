@@ -133,10 +133,6 @@ def evaluate_test_set(model, tokenizer, test_dataset, current_step):
         top_k=20,
     )
     
-    # Set a reasonable max_model_len when initializing vLLM
-    model.max_model_len = 4096  # or another appropriate value like 2048 or 8192
-    
-    # Prepare all prompts for batch inference
     prompts = []
     question_ids = []
     answers = []
@@ -146,8 +142,8 @@ def evaluate_test_set(model, tokenizer, test_dataset, current_step):
         question_ids.append(hashlib.md5(item['prompt'][-1]['content'].encode()).hexdigest())
         answers.append(item['answer'])
     
-    # Use model's vLLM engine for generation
-    outputs = model.generate_vllm(prompts, sampling_params)
+    # Use the trainer's vLLM instance
+    outputs = model.llm.generate(prompts, sampling_params)
     
     # Process outputs
     for output, question_id, prompt, answer in zip(outputs, question_ids, prompts, answers):
@@ -173,7 +169,7 @@ class TestEvalCallback(TrainerCallback):
         self.test_dataset = test_dataset
     
     def on_step_end(self, args, state, control, **kwargs):
-        if state.global_step % 10 == 0:  # Every 10 steps
+        if state.global_step % 10 == 0 and hasattr(self.model, 'llm'):  # Check if vLLM is initialized
             evaluate_test_set(self.model, self.tokenizer, self.test_dataset, state.global_step)
 
 model_name = "llama3b"  # Path to local model folder
