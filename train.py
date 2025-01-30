@@ -194,7 +194,7 @@ training_args = GRPOConfig(
     bf16=True,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=4,
-    num_generations=4,
+    num_generations=16,
     max_prompt_length=256,
     max_completion_length=786,
     num_train_epochs=5,
@@ -203,7 +203,8 @@ training_args = GRPOConfig(
     report_to="wandb",
     log_on_each_node=False,
     use_vllm=True,  # Enable vLLM for faster generation
-    vllm_gpu_memory_utilization=0.8
+    vllm_device=1,
+    vllm_gpu_memory_utilization=0.75
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
