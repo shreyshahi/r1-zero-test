@@ -102,7 +102,8 @@ writer_process.start()
 def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     responses = [completion[0]['content'] for completion in completions]
     extracted_responses = [extract_xml_answer(r) for r in responses]
-   
+    q = prompts[0][-1]['content']
+    print('-'*20, f"Question:\n{q}", f"\nAnswer:\n{answer[0]}", f"\nResponse:\n{responses[0]}", f"\nExtracted:\n{extracted_responses[0]}")
     return [2.0 if r == a else 0.0 for r, a in zip(extracted_responses, answer)]
 
 def strict_format_reward_func(completions, **kwargs) -> list[float]:
@@ -180,7 +181,7 @@ run_name = "Llama-1B-GRPO-gsm8k"
 training_args = GRPOConfig(
     output_dir=output_dir,
     run_name=run_name,
-    learning_rate=5e-6,
+    learning_rate=1e-6,
     adam_beta1=0.9,
     adam_beta2=0.99,
     weight_decay=0.1,
