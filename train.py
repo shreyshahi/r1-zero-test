@@ -203,14 +203,14 @@ training_args = GRPOConfig(
     report_to="wandb",
     log_on_each_node=False,
     use_vllm=True,  # Enable vLLM for faster generation
-    max_model_len=4096,  # Add this line to set context length for training
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype=torch.bfloat16,
     attn_implementation="flash_attention_2",
     device_map=None,
-    trust_remote_code=True  # Added for loading local model
+    trust_remote_code=True,  # Added for loading local model
+    max_model_len=4096,  # Add this line to set context length
 ).to("cuda")
         
 tokenizer = AutoTokenizer.from_pretrained(
