@@ -204,7 +204,7 @@ training_args = GRPOConfig(
     log_on_each_node=False,
     use_vllm=True,  # Enable vLLM for faster generation
     vllm_device="cuda:1",
-    vllm_gpu_memory_utilization=0.5
+    vllm_gpu_memory_utilization=0.4
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
