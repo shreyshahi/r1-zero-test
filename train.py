@@ -201,6 +201,10 @@ class TestEvalCallback(TrainerCallback):
     def __init__(self, trainer, test_dataset):
         self.trainer = trainer
         self.test_dataset = test_dataset
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        # Run evaluation at step 0 before training starts
+        evaluate_test_set(self.trainer, self.test_dataset, 0)
     
     def on_step_end(self, args, state, control, **kwargs):
         if state.global_step % 10 == 0:
