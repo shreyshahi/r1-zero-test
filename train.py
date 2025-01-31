@@ -122,15 +122,15 @@ def int_reward_func(completions, **kwargs) -> list[float]:
 
 def strict_format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n$"
-    responses = [completion[0]["content"] for completion in completions]
+    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>$"
+    responses = [completion[0]["content"].strip() for completion in completions]
     matches = [re.match(pattern, r) for r in responses] 
     return [0.5 if match else 0.0 for match in matches]
 
 def soft_format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
     pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
-    responses = [completion[0]["content"] for completion in completions]
+    responses = [completion[0]["content"].strip() for completion in completions]
     matches = [re.match(pattern, r) for r in responses] 
     return [0.5 if match else 0.0 for match in matches]
 
@@ -157,14 +157,18 @@ def cleanup_writer():
     response_queue.put("DONE")
     writer_process.join()
 
-def evaluate_test_set(model, tokenizer, test_dataset, current_step):
+
+def evaluate_test_set(trainer, test_dataset, current_step):
     """Use vLLM for efficient batch evaluation"""
     sampling_params = SamplingParams(
         max_tokens=786,
         temperature=0.7,
         top_p=0.8,
         top_k=20,
+        skip_special_tokens=True
     )
+
+    vllm_engine = trainer.model.llm
     
     prompts = []
     question_ids = []
@@ -176,7 +180,7 @@ def evaluate_test_set(model, tokenizer, test_dataset, current_step):
         answers.append(item['answer'])
     
     # Use the trainer's vLLM instance
-    outputs = model.llm.generate(prompts, sampling_params)
+    outputs = vllm_engine.generate(prompts, sampling_params)
     
     # Process outputs
     for output, question_id, prompt, answer in zip(outputs, question_ids, prompts, answers):
@@ -196,14 +200,13 @@ def evaluate_test_set(model, tokenizer, test_dataset, current_step):
         response_queue.put((None, current_step, question_id, data))
 
 class TestEvalCallback(TrainerCallback):
-    def __init__(self, model, tokenizer, test_dataset):
-        self.model = model
-        self.tokenizer = tokenizer
+    def __init__(self, trainer, test_dataset):
+        self.trainer = trainer
         self.test_dataset = test_dataset
     
     def on_step_end(self, args, state, control, **kwargs):
-        if state.global_step % 10 == 0 and hasattr(self.model, 'llm'):  # Check if vLLM is initialized
-            evaluate_test_set(self.model, self.tokenizer, self.test_dataset, state.global_step)
+        if state.global_step % 10 == 0:
+            evaluate_test_set(self.trainer, self.test_dataset, state.global_step)
 
 model_name = "llama1b"  # Path to local model folder
 
@@ -233,7 +236,7 @@ training_args = GRPOConfig(
     log_on_each_node=False,
     use_vllm=True,  # Enable vLLM for faster generation
     vllm_device="cuda:1",
-    vllm_gpu_memory_utilization=0.4
+    vllm_gpu_memory_utilization=0.4,
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
@@ -264,6 +267,12 @@ trainer = GRPOTrainer(
     args=training_args,
     train_dataset=train_dataset,
 )
+
+callback = TestEvalCallback(
+    trainer=trainer,
+    test_dataset=test_dataset
+)
+trainer.add_callback(callback)
 
 try:
     trainer.train()
