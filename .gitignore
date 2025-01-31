@@ -9,6 +9,8 @@ llama1b/
 gsm8k/ 
 wandb/
 qwen0.5/
+raw_validation_data/
+validation_data/
 
 # C extensions
 *.so
