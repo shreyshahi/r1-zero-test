@@ -207,7 +207,13 @@ def evaluate_test_set(trainer, test_dataset, current_step):
     
     # Calculate accuracy and log to wandb
     accuracy = correct_count / total_count
-    trainer.log({"validation_accuracy": accuracy}, step=current_step)
+    trainer.state.log_history.append(
+        {
+            "step": current_step,
+            "validation_accuracy": accuracy,
+            "epoch": current_step / len(trainer.train_dataset)
+        }
+    )
 
 class TestEvalCallback(TrainerCallback):
     def __init__(self, trainer, test_dataset):
