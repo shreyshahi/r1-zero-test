@@ -3,7 +3,7 @@ import asyncio
 import os
 import json
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Set
 import argparse
 from botocore.exceptions import NoCredentialsError
 import aiofiles
@@ -12,11 +12,14 @@ import aiofiles
 S3_BUCKET_NAME = "gsm8k-grpo-training-traces"
 MAX_CONCURRENT_DOWNLOADS = 50  # Adjust based on your needs
 
+def get_existing_files(raw_data_dir: str) -> Set[str]:
+    """Get set of existing files in the raw data directory"""
+    if not os.path.exists(raw_data_dir):
+        return set()
+    return {f for f in os.listdir(raw_data_dir) if f.endswith('.json')}
+
 async def download_file(session, bucket: str, key: str, local_path: str):
     """Download a single file from S3 asynchronously"""
-    if os.path.exists(local_path):
-        return
-        
     async with session.client('s3') as s3_client:
         try:
             response = await s3_client.get_object(Bucket=bucket, Key=key)
@@ -26,7 +29,7 @@ async def download_file(session, bucket: str, key: str, local_path: str):
         except Exception as e:
             print(f"Error downloading {key}: {e}")
 
-async def download_s3_data(timestamp: str, raw_data_dir: str) -> None:
+async def download_s3_data(timestamp: str, raw_data_dir: str, force: bool = False) -> None:
     """Download data from S3 for the specified timestamp using concurrent downloads"""
     try:
         session = aioboto3.Session(
@@ -40,6 +43,11 @@ async def download_s3_data(timestamp: str, raw_data_dir: str) -> None:
     # Create directory if it doesn't exist
     os.makedirs(raw_data_dir, exist_ok=True)
     
+    # Get existing files
+    existing_files = get_existing_files(raw_data_dir) if not force else set()
+    if existing_files:
+        print(f"Found {len(existing_files)} existing files")
+    
     # List objects in the bucket with the specified prefix
     prefix = f"responses/{timestamp}"
     
@@ -49,22 +57,26 @@ async def download_s3_data(timestamp: str, raw_data_dir: str) -> None:
             
             found_files = False
             download_tasks = []
+            s3_files = set()
             
+            # First, list all files in S3
             async for page in paginator.paginate(Bucket=S3_BUCKET_NAME, Prefix=prefix):
                 if 'Contents' not in page:
                     continue
                     
                 found_files = True
                 
-                # Create download tasks for each file
+                # Create download tasks for each new file
                 for obj in page['Contents']:
                     relative_path = obj['Key']
-                    local_path = os.path.join(raw_data_dir, os.path.basename(relative_path))
+                    filename = os.path.basename(relative_path)
+                    s3_files.add(filename)
                     
                     # Skip if file already exists
-                    if os.path.exists(local_path):
+                    if filename in existing_files:
                         continue
                         
+                    local_path = os.path.join(raw_data_dir, filename)
                     task = download_file(session, S3_BUCKET_NAME, relative_path, local_path)
                     download_tasks.append(task)
             
@@ -72,17 +84,32 @@ async def download_s3_data(timestamp: str, raw_data_dir: str) -> None:
                 print(f"No files found for timestamp: {timestamp}")
                 exit(1)
             
-            # Download files concurrently in batches
-            total_files = len(download_tasks)
-            if total_files > 0:
-                print(f"Downloading {total_files} files...")
+            # Report on file status
+            total_s3_files = len(s3_files)
+            new_files = len(download_tasks)
+            skipped_files = total_s3_files - new_files
+            
+            print(f"Found {total_s3_files} files in S3")
+            print(f"Skipping {skipped_files} already downloaded files")
+            
+            # Download new files concurrently in batches
+            if new_files > 0:
+                print(f"Downloading {new_files} new files...")
                 
-                for i in range(0, total_files, MAX_CONCURRENT_DOWNLOADS):
+                for i in range(0, new_files, MAX_CONCURRENT_DOWNLOADS):
                     batch = download_tasks[i:i + MAX_CONCURRENT_DOWNLOADS]
                     await asyncio.gather(*batch)
-                    print(f"Progress: {min(i + MAX_CONCURRENT_DOWNLOADS, total_files)}/{total_files} files")
+                    print(f"Progress: {min(i + MAX_CONCURRENT_DOWNLOADS, new_files)}/{new_files} files")
+                
+                print(f"Downloaded {new_files} new files to {raw_data_dir}")
+            else:
+                print("All files already downloaded")
             
-            print(f"Downloaded data to {raw_data_dir}")
+            # Check for any files that exist locally but not in S3
+            local_only = existing_files - s3_files
+            if local_only:
+                print(f"Warning: Found {len(local_only)} files in local directory that don't exist in S3")
+                print("These files might be from a different timestamp or could be corrupted")
             
     except Exception as e:
         print(f"Error accessing S3: {e}")
@@ -165,6 +192,8 @@ async def async_main():
                       help='Directory for processed data')
     parser.add_argument('--concurrent-downloads', type=int, default=50,
                       help='Maximum number of concurrent downloads')
+    parser.add_argument('--force', action='store_true',
+                      help='Force download all files, ignoring existing ones')
     
     args = parser.parse_args()
     
@@ -172,7 +201,7 @@ async def async_main():
     MAX_CONCURRENT_DOWNLOADS = args.concurrent_downloads
     
     # Download data asynchronously
-    await download_s3_data(args.timestamp, args.raw_dir)
+    await download_s3_data(args.timestamp, args.raw_dir, args.force)
     
     # Process data (synchronous)
     process_validation_data(args.raw_dir, args.processed_dir)
