@@ -180,10 +180,18 @@ def evaluate_test_set(trainer, test_dataset, current_step):
     # Use the trainer's vLLM instance
     outputs = vllm_engine.generate(prompts, sampling_params)
     
+    # Track correct predictions
+    correct_count = 0
+    total_count = len(outputs)
+    
     # Process outputs
     for output, question_id, prompt, answer in zip(outputs, question_ids, prompts, answers):
         response = output.outputs[0].text
         extracted = extract_xml_answer(response)
+        
+        # Check if prediction matches answer
+        if extracted == answer:
+            correct_count += 1
         
         # Queue data for writing
         data = {
@@ -196,6 +204,10 @@ def evaluate_test_set(trainer, test_dataset, current_step):
             "split": "test"
         }
         response_queue.put((None, current_step, question_id, data))
+    
+    # Calculate accuracy and log to wandb
+    accuracy = correct_count / total_count
+    trainer.log({"validation_accuracy": accuracy}, step=current_step)
 
 class TestEvalCallback(TrainerCallback):
     def __init__(self, trainer, test_dataset):
