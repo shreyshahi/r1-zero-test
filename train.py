@@ -213,7 +213,7 @@ run_name = "Llama-1B-GRPO-gsm8k"
 training_args = GRPOConfig(
     output_dir=output_dir,
     run_name=run_name,
-    learning_rate=1e-6,
+    learning_rate=5e-6,
     adam_beta1=0.9,
     adam_beta2=0.99,
     weight_decay=0.1,
@@ -226,7 +226,7 @@ training_args = GRPOConfig(
     num_generations=16,
     max_prompt_length=256,
     max_completion_length=786,
-    num_train_epochs=5,
+    num_train_epochs=10,
     save_steps=10000,
     max_grad_norm=0.1,
     report_to="wandb",
@@ -263,7 +263,6 @@ trainer = GRPOTrainer(
         xmlcount_reward_func],
     args=training_args,
     train_dataset=train_dataset,
-    callbacks=[TestEvalCallback(model, tokenizer, test_dataset)]
 )
 
 try:
