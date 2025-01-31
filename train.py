@@ -166,7 +166,7 @@ def evaluate_test_set(trainer, test_dataset, current_step):
         skip_special_tokens=True
     )
 
-    vllm_engine = trainer.model.llm
+    vllm_engine = trainer.llm
     
     prompts = []
     question_ids = []
