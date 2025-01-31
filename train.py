@@ -113,42 +113,12 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[floa
     extracted_responses = [extract_xml_answer(r) for r in responses]
     return [2.0 if r == a else 0.0 for r, a in zip(extracted_responses, answer)]
 
-def int_reward_func(completions, **kwargs) -> list[float]:
-    responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [extract_xml_answer(r) for r in responses]
-    return [0.5 if r.isdigit() else 0.0 for r in extracted_responses]
-
-def strict_format_reward_func(completions, **kwargs) -> list[float]:
+def format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
     pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>$"
     responses = [completion[0]["content"].strip() for completion in completions]
     matches = [re.match(pattern, r) for r in responses] 
-    return [0.5 if match else 0.0 for match in matches]
-
-def soft_format_reward_func(completions, **kwargs) -> list[float]:
-    """Reward function that checks if the completion has a specific format."""
-    pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
-    responses = [completion[0]["content"].strip() for completion in completions]
-    matches = [re.match(pattern, r) for r in responses] 
-    return [0.5 if match else 0.0 for match in matches]
-
-def count_xml(text) -> float:
-    count = 0.0
-    if text.count("<reasoning>\n") == 1:
-        count += 0.125
-    if text.count("\n</reasoning>\n") == 1:
-        count += 0.125
-    if text.count("\n<answer>\n") == 1:
-        count += 0.125
-        count -= len(text.split("\n</answer>\n")[-1])*0.001
-    if text.count("\n</answer>") == 1:
-        count += 0.125
-        count -= (len(text.split("\n</answer>")[-1]) - 1)*0.001
-    return count
-
-def xmlcount_reward_func(completions, **kwargs) -> list[float]:
-    contents = [completion[0]["content"] for completion in completions]
-    return [count_xml(c) for c in contents]
+    return [1.0 if match else 0.0 for match in matches]
 
 # Add cleanup function to be called at end of training
 def cleanup_writer():
@@ -205,15 +175,13 @@ def evaluate_test_set(trainer, test_dataset, current_step):
         }
         response_queue.put((None, current_step, question_id, data))
     
-    # Calculate accuracy and log to wandb
+    # Calculate accuracy
     accuracy = correct_count / total_count
-    trainer.state.log_history.append(
-        {
-            "step": current_step,
-            "validation_accuracy": accuracy,
-            "epoch": current_step / len(trainer.train_dataset)
-        }
-    )
+    
+    if "validation_accuracy" not in trainer._metrics:
+        trainer._metrics["validation_accuracy"] = []
+    
+    trainer._metrics["validation_accuracy"].append(accuracy)
 
 class TestEvalCallback(TrainerCallback):
     def __init__(self, trainer, test_dataset):
@@ -279,11 +247,9 @@ trainer = GRPOTrainer(
     model=model,
     processing_class=tokenizer,
     reward_funcs=[
-        soft_format_reward_func,
-        strict_format_reward_func,
+        format_reward_func,
         correctness_reward_func,
-        int_reward_func,
-        xmlcount_reward_func],
+    ],
     args=training_args,
     train_dataset=train_dataset,
 )
