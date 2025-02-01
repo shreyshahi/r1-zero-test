@@ -18,22 +18,26 @@ import aioboto3
 import asyncio
 
 SYSTEM_PROMPT = """
-Respond only in the following format:
-<reasoning>
-...
-</reasoning>
+A conversation between User and Assistant. The user asks a question, and the Assistant solves it.
+The assistant first thinks about the reasoning process in the mind and then provides the user
+with the answer. The reasoning process and answer are enclosed within <think> </think> and
+<answer> </answer> tags, respectively, i.e.,
+
+<think>
+reasoning process here
+</think>
 <answer>
-...
+answer here
 </answer>
 
 If you do not follow the format, you will be penalized.
-Put the final answer in the <answer> tag. Do not use \boxed{} or any other formatting.
+Put the final answer in the <answer></answer> tag. Do not use \boxed{} or any other formatting.
 """
 
 XML_COT_FORMAT = """\
-<reasoning>
+<think>
 {reasoning}
-</reasoning>
+</think>
 <answer>
 {answer}
 </answer>
@@ -55,11 +59,6 @@ def get_gsm8k_questions(split = "train") -> Dataset:
     data = data.map(lambda x: { # type: ignore
         'prompt': [
             {'role': 'system', 'content': SYSTEM_PROMPT},
-            {'role': 'user', 'content': 'Use the format described in the system prompt to answer the following question: What is the largest single-digit prime number?'},
-            {'role': 'assistant', 'content': XML_COT_FORMAT.format(
-                reasoning="9 is divisble by 3 and 8 is divisible by 2, but 7 is prime.",
-                answer="7"
-            )},
             {'role': 'user', 'content': f"Use the format described in the system prompt to answer the following question: {x['question']}"}
         ],
         'answer': extract_hash_answer(x['answer'])
@@ -153,7 +152,7 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[floa
 
 def format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>$"
+    pattern = r"^<think>\n.*?\n</think>\n<answer>\n.*?\n</answer>$"
     responses = [completion[0]["content"].strip() for completion in completions]
     matches = [re.match(pattern, r) for r in responses] 
     return [1.0 if match else 0.0 for match in matches]
