@@ -233,12 +233,12 @@ class TestEvalCallback(TrainerCallback):
     def on_train_begin(self, args, state, control, **kwargs):
         # Run evaluation at step 0 before training starts
         accuracy = evaluate_test_set(self.trainer, self.test_dataset, 0)
-        self.trainer.log({"eval/accuracy": accuracy}, step=0)
+        self.trainer.log({"eval/accuracy": accuracy, "step": 0})
     
     def on_step_end(self, args, state, control, **kwargs):
         if state.global_step % 10 == 0:
             accuracy = evaluate_test_set(self.trainer, self.test_dataset, state.global_step)
-            self.trainer.log({"eval/accuracy": accuracy}, step=state.global_step)
+            self.trainer.log({"eval/accuracy": accuracy, "step": state.global_step})
 
 model_name = "llama1b"  # Path to local model folder
 
