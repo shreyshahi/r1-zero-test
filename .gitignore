@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+# Python ignores
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,20 +6,69 @@ __pycache__/
 # Models and datasets
 llama3b/
 llama1b/
-gsm8k/ 
+gsmBan/ 
 wandb/
 qwen0.5/
 raw_validation_data/
 validation_data/
+
+# React ignores
+/node_modules
+/.pnp
+.pnp.js
+/coverage
+/build
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Data directory
+data/
+
+# Python environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Testing
+.coverage
+.tox/
+.pytest_cache/
+htmlcov/
+
+# Misc
+*.log
+*.pot
+*.pyc
+.cache
 
 # C extensions
 *.so
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -30,9 +79,7 @@ sdist/
 var/
 wheels/
 share/python-wheels/
-*.egg-info/
 .installed.cfg
-*.egg
 MANIFEST
 
 # PyInstaller
@@ -46,18 +93,9 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
-.pytest_cache/
 cover/
 
 # Translations
@@ -65,7 +103,6 @@ cover/
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -135,15 +172,6 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
 
 # Spyder project settings
 .spyderproject

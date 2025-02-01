@@ -1,0 +1,161 @@
+.App {
+  padding: 1rem;
+}
+
+.App h1 {
+  text-align: center;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.two-column-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.column {
+  min-width: 0;
+}
+
+.question-column {
+  border-right: 1px solid #ddd;
+  padding-right: 2rem;
+}
+
+.answer-column {
+  padding-left: 1rem;
+}
+
+.chat-messages {
+  text-align: left;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.message {
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+}
+
+.message .role {
+  font-weight: bold;
+  margin-right: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.message.system {
+  background-color: #f0f0f0;
+  padding: 0.2rem 0.4rem;
+}
+
+.message.system .role {
+  color: #666;
+}
+
+.message.user {
+  background-color: #e3f2fd;
+}
+
+.message.user .role {
+  color: #1976d2;
+}
+
+.message.assistant {
+  background-color: #f1f8e9;
+}
+
+.message.assistant .role {
+  color: #388e3c;
+}
+
+.message .content {
+  display: inline-block;
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+}
+
+.question-box {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0.5rem;
+}
+
+.question-box h2 {
+  font-size: 1rem;
+  margin: 0.5rem 0;
+}
+
+.answer-box {
+  margin-top: 1rem;
+}
+
+.slider-container {
+  margin-bottom: 2rem;
+}
+
+.slider {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.step-label {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.refresh-button {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 2rem;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.refresh-button:hover {
+  background-color: #e0e0e0;
+}
