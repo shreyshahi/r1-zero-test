@@ -148,14 +148,14 @@ for _ in range(NUM_PROCESSES):
 def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     responses = [completion[0]['content'] for completion in completions]
     extracted_responses = [extract_xml_answer(r) for r in responses]
-    return [2.0 if r == a else 0.0 for r, a in zip(extracted_responses, answer)]
+    return [1.0 if r == a else 0.0 for r, a in zip(extracted_responses, answer)]
 
 def format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
     pattern = r"^<think>\n.*?\n</think>\n<answer>\n.*?\n</answer>$"
     responses = [completion[0]["content"].strip() for completion in completions]
     matches = [re.match(pattern, r) for r in responses] 
-    return [1.0 if match else 0.0 for match in matches]
+    return [0.1 if match else 0.0 for match in matches]
 
 # Update the cleanup function
 def cleanup_writer():
