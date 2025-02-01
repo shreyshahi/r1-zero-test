@@ -14,6 +14,8 @@ import multiprocessing as mp
 import boto3
 from datetime import datetime
 from vllm import SamplingParams
+import aioboto3
+import asyncio
 
 SYSTEM_PROMPT = """
 Respond only in the following format:
@@ -71,41 +73,77 @@ test_dataset = get_gsm8k_questions(split="test")
 S3_BUCKET_NAME = "gsm8k-grpo-training-traces"  # Replace with your bucket name
 S3_PREFIX = f"responses/{datetime.now().strftime('%Y%m%d_%H%M%S')}"  # Creates unique prefix for each run
 
-def file_writer_process(queue):
-    """Separate process that handles writing responses to S3"""
-    # Initialize S3 client
-    s3_client = boto3.client(
-        's3',
+async def async_upload_batch(s3_client, batch):
+    """Async function to upload a batch of files to S3"""
+    upload_tasks = []
+    
+    # Create all upload tasks
+    for _, current_step, question_id, data_to_write in batch:
+        s3_key = f"{S3_PREFIX}/step_{current_step}_{question_id}.json"
+        json_str = json.dumps(data_to_write, indent=2)
+        
+        task = s3_client.put_object(
+            Bucket=S3_BUCKET_NAME,
+            Key=s3_key,
+            Body=json_str
+        )
+        upload_tasks.append(task)
+    
+    # Execute all uploads concurrently
+    try:
+        await asyncio.gather(*upload_tasks)
+    except Exception as e:
+        print(f"Error during batch upload: {e}")
+
+async def async_file_writer(queue):
+    """Async handler for S3 uploads"""
+    session = aioboto3.Session(
         aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
         aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
     )
     
-    while True:
-        data = queue.get()
-        if data == "DONE":  # Sentinel value to stop the process
-            break
-            
-        _, current_step, question_id, data_to_write = data
-        # Create S3 key (path in bucket)
-        s3_key = f"{S3_PREFIX}/step_{current_step}_{question_id}.json"
-        
-        # Convert data to JSON string
-        json_str = json.dumps(data_to_write, indent=2)
-        
-        # Upload to S3
-        try:
-            s3_client.put_object(
-                Bucket=S3_BUCKET_NAME,
-                Key=s3_key,
-                Body=json_str
-            )
-        except Exception as e:
-            print(f"Error uploading to S3: {e}")
+    current_batch = []
+    BATCH_SIZE = 50
+    
+    async with session.client('s3') as s3_client:
+        while True:
+            try:
+                data = queue.get_nowait()
+                if data == "DONE":
+                    # Upload any remaining items
+                    if current_batch:
+                        await async_upload_batch(s3_client, current_batch)
+                    break
+                
+                current_batch.append(data)
+                
+                # When batch is full, upload it
+                if len(current_batch) >= BATCH_SIZE:
+                    await async_upload_batch(s3_client, current_batch)
+                    current_batch = []
+                    
+            except mp.queues.Empty:
+                # If queue is empty and we have a partial batch, upload it
+                if current_batch:
+                    await async_upload_batch(s3_client, current_batch)
+                    current_batch = []
+                await asyncio.sleep(0.1)  # Small delay to prevent busy waiting
 
-# Create a global queue and process
-response_queue = mp.Queue()
-writer_process = Process(target=file_writer_process, args=(response_queue,))
-writer_process.start()
+def file_writer_process(queue):
+    """Process that runs the async file writer"""
+    asyncio.run(async_file_writer(queue))
+
+# Create multiple writer processes
+NUM_PROCESSES = 10
+writer_processes = []
+writer_queues = []
+
+for _ in range(NUM_PROCESSES):
+    queue = mp.Queue()
+    writer_queues.append(queue)
+    process = Process(target=file_writer_process, args=(queue,))
+    process.start()
+    writer_processes.append(process)
 
 # Reward functions
 def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
@@ -120,11 +158,18 @@ def format_reward_func(completions, **kwargs) -> list[float]:
     matches = [re.match(pattern, r) for r in responses] 
     return [1.0 if match else 0.0 for match in matches]
 
-# Add cleanup function to be called at end of training
+# Update the cleanup function
 def cleanup_writer():
-    response_queue.put("DONE")
-    writer_process.join()
+    for queue in writer_queues:
+        queue.put("DONE")
+    for process in writer_processes:
+        process.join()
 
+# Update where we put data into the queue to distribute across processes
+def queue_data(data):
+    # Round-robin distribution across queues
+    queue_index = hash(data[2]) % NUM_PROCESSES  # Use question_id for consistent distribution
+    writer_queues[queue_index].put(data)
 
 def evaluate_test_set(trainer, test_dataset, current_step):
     """Use vLLM for efficient batch evaluation"""
@@ -163,8 +208,8 @@ def evaluate_test_set(trainer, test_dataset, current_step):
         if extracted == answer:
             correct_count += 1
         
-        # Queue data for writing
-        data = {
+        # Use the new queue_data function
+        queue_data((None, current_step, question_id, {
             "id": question_id,
             "step": current_step,
             "question": prompt,
@@ -172,8 +217,7 @@ def evaluate_test_set(trainer, test_dataset, current_step):
             "response": response,
             "extracted": extracted,
             "split": "test"
-        }
-        response_queue.put((None, current_step, question_id, data))
+        }))
     
     # Calculate accuracy
     accuracy = correct_count / total_count
