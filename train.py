@@ -177,11 +177,9 @@ def evaluate_test_set(trainer, test_dataset, current_step):
     
     # Calculate accuracy
     accuracy = correct_count / total_count
+
+    return accuracy
     
-    if "validation_accuracy" not in trainer._metrics:
-        trainer._metrics["validation_accuracy"] = []
-    
-    trainer._metrics["validation_accuracy"].append(accuracy)
 
 class TestEvalCallback(TrainerCallback):
     def __init__(self, trainer, test_dataset):
@@ -190,11 +188,13 @@ class TestEvalCallback(TrainerCallback):
 
     def on_train_begin(self, args, state, control, **kwargs):
         # Run evaluation at step 0 before training starts
-        evaluate_test_set(self.trainer, self.test_dataset, 0)
+        accuracy = evaluate_test_set(self.trainer, self.test_dataset, 0)
+        self.trainer.log({"eval/accuracy": accuracy}, step=0)
     
     def on_step_end(self, args, state, control, **kwargs):
         if state.global_step % 10 == 0:
-            evaluate_test_set(self.trainer, self.test_dataset, state.global_step)
+            accuracy = evaluate_test_set(self.trainer, self.test_dataset, state.global_step)
+            self.trainer.log({"eval/accuracy": accuracy}, step=state.global_step)
 
 model_name = "llama1b"  # Path to local model folder
 
@@ -213,7 +213,7 @@ training_args = GRPOConfig(
     logging_steps=1,
     bf16=True,
     per_device_train_batch_size=1,
-    gradient_accumulation_steps=4,
+    gradient_accumulation_steps=16,
     num_generations=16,
     max_prompt_length=256,
     max_completion_length=786,
