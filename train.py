@@ -297,6 +297,7 @@ tokenizer = AutoTokenizer.from_pretrained(
     trust_remote_code=True  # Added for loading local model
 )
 tokenizer.pad_token = tokenizer.eos_token
+tokenizer.padding_side = 'left'
 
 trainer = GRPOTrainer(
     model=model,
