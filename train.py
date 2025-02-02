@@ -13,7 +13,6 @@ from queue import Queue
 import multiprocessing as mp
 import boto3
 from datetime import datetime
-from vllm import SamplingParams
 import aioboto3
 import asyncio
 
@@ -171,16 +170,9 @@ def queue_data(data):
     writer_queues[queue_index].put(data)
 
 def evaluate_test_set(trainer, test_dataset, current_step):
-    """Use vLLM for efficient batch evaluation"""
-    sampling_params = SamplingParams(
-        max_tokens=786,
-        temperature=0.7,
-        top_p=0.8,
-        top_k=20,
-        skip_special_tokens=True
-    )
-
-    vllm_engine = trainer.llm
+    """Evaluate test set using standard model inference"""
+    model = trainer.model
+    tokenizer = trainer.processing_class
     
     prompts = []
     question_ids = []
@@ -191,38 +183,58 @@ def evaluate_test_set(trainer, test_dataset, current_step):
         question_ids.append(hashlib.md5(item['prompt'][-1]['content'].encode()).hexdigest())
         answers.append(item['answer'])
     
-    # Use the trainer's vLLM instance
-    outputs = vllm_engine.generate(prompts, sampling_params)
-    
     # Track correct predictions
     correct_count = 0
-    total_count = len(outputs)
+    total_count = len(prompts)
     
-    # Process outputs
-    for output, question_id, prompt, answer in zip(outputs, question_ids, prompts, answers):
-        response = output.outputs[0].text
-        extracted = extract_xml_answer(response)
+    # Process outputs in batches
+    batch_size = 4  # Smaller batch size for memory efficiency
+    for i in range(0, total_count, batch_size):
+        batch_prompts = prompts[i:i + batch_size]
+        batch_ids = question_ids[i:i + batch_size]
+        batch_answers = answers[i:i + batch_size]
         
-        # Check if prediction matches answer
-        if extracted == answer:
-            correct_count += 1
+        # Tokenize inputs
+        inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True)
+        inputs = {k: v.to(model.device) for k, v in inputs.items()}
         
-        # Use the new queue_data function
-        queue_data((None, current_step, question_id, {
-            "id": question_id,
-            "step": current_step,
-            "question": prompt,
-            "answer": answer,
-            "response": response,
-            "extracted": extracted,
-            "split": "test"
-        }))
+        # Generate responses
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=786,
+                temperature=0.7,
+                top_p=0.8,
+                top_k=20,
+                pad_token_id=tokenizer.pad_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+            )
+        
+        # Decode outputs
+        responses = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        
+        # Process each response
+        for response, question_id, prompt, answer in zip(responses, batch_ids, batch_prompts, batch_answers):
+            extracted = extract_xml_answer(response)
+            
+            # Check if prediction matches answer
+            if extracted == answer:
+                correct_count += 1
+            
+            # Queue data for storage
+            queue_data((None, current_step, question_id, {
+                "id": question_id,
+                "step": current_step,
+                "question": prompt,
+                "answer": answer,
+                "response": response,
+                "extracted": extracted,
+                "split": "test"
+            }))
     
     # Calculate accuracy
     accuracy = correct_count / total_count
-
     return accuracy
-    
 
 class TestEvalCallback(TrainerCallback):
     def __init__(self, trainer, test_dataset):
@@ -256,7 +268,7 @@ training_args = GRPOConfig(
     logging_steps=1,
     bf16=True,
     per_device_train_batch_size=1,
-    gradient_accumulation_steps=16,
+    gradient_accumulation_steps=8,
     num_generations=16,
     max_prompt_length=256,
     max_completion_length=786,
