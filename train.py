@@ -188,7 +188,7 @@ def evaluate_test_set(trainer, test_dataset, current_step):
 
     vllm_engine = trainer.llm
     
-    prompts = []pip install git+https://github.com/huggingface/trl.git
+    prompts = []
     question_ids = []
     answers = []
     for item in test_dataset:
