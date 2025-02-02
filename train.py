@@ -31,7 +31,7 @@ answer here
 </answer>
 
 If you do not follow the format, you will be penalized.
-Put the final answer in the <answer></answer> tag. Do not use \boxed{} or any other formatting.
+Put the final answer in the <answer></answer> tag.
 """
 
 XML_COT_FORMAT = """\
@@ -46,12 +46,18 @@ XML_COT_FORMAT = """\
 def extract_xml_answer(text: str) -> str:
     answer = text.split("<answer>")[-1]
     answer = answer.split("</answer>")[0]
+    answer = answer.strip()
+    # Remove $ signs and commas from the answer
+    answer = answer.replace("$", "").replace(",", "")
     return answer.strip()
 
 def extract_hash_answer(text: str) -> str | None:
     if "####" not in text:
         return None
-    return text.split("####")[1].strip()
+    answer = text.split("####")[1].strip()
+    # Remove $ signs and commas from the answer
+    answer = answer.replace("$", "").replace(",", "")
+    return answer.strip()
 
 # uncomment middle messages for 1-shot prompting
 def get_gsm8k_questions(split = "train") -> Dataset:
@@ -182,7 +188,7 @@ def evaluate_test_set(trainer, test_dataset, current_step):
 
     vllm_engine = trainer.llm
     
-    prompts = []
+    prompts = []pip install git+https://github.com/huggingface/trl.git
     question_ids = []
     answers = []
     for item in test_dataset:
