@@ -174,7 +174,7 @@ def evaluate_test_set(trainer, test_dataset, current_step):
     """Use vLLM for efficient batch evaluation"""
     sampling_params = SamplingParams(
         max_tokens=786,
-        temperature=0.7,
+        temperature=0.1,
         top_p=0.8,
         top_k=20,
         skip_special_tokens=True
