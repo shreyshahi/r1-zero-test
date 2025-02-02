@@ -294,10 +294,10 @@ model.max_model_len = 4096
 
 tokenizer = AutoTokenizer.from_pretrained(
     model_name,
-    trust_remote_code=True  # Added for loading local model
+    padding_side='left',  # Set it directly in the initialization
+    trust_remote_code=True
 )
 tokenizer.pad_token = tokenizer.eos_token
-tokenizer.padding_side = 'left'
 
 trainer = GRPOTrainer(
     model=model,
