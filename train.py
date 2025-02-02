@@ -152,10 +152,10 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[floa
 
 def format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<think>\n.*?\n</think>\n<answer>\n.*?\n</answer>$"
+    pattern = r"<think>\n[\s\S]*?</think>\n<answer>\n[\s\S]*?</answer>"
     responses = [completion[0]["content"].strip() for completion in completions]
     matches = [re.match(pattern, r) for r in responses] 
-    return [0.1 if match else 0.0 for match in matches]
+    return [0.25 if match else 0.0 for match in matches]
 
 # Update the cleanup function
 def cleanup_writer():
@@ -247,7 +247,7 @@ run_name = "Llama-1B-GRPO-gsm8k"
 training_args = GRPOConfig(
     output_dir=output_dir,
     run_name=run_name,
-    learning_rate=5e-6,
+    learning_rate=3e-6,
     adam_beta1=0.9,
     adam_beta2=0.99,
     weight_decay=0.1,
