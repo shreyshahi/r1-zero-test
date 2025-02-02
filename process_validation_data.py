@@ -190,7 +190,7 @@ async def async_main():
                       help='Directory for raw downloaded data')
     parser.add_argument('--processed-dir', type=str, default="validation_data",
                       help='Directory for processed data')
-    parser.add_argument('--concurrent-downloads', type=int, default=100,
+    parser.add_argument('--concurrent-downloads', type=int, default=50,
                       help='Maximum number of concurrent downloads')
     parser.add_argument('--force', action='store_true',
                       help='Force download all files, ignoring existing ones')

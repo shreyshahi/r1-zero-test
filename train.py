@@ -13,6 +13,7 @@ from queue import Queue
 import multiprocessing as mp
 import boto3
 from datetime import datetime
+from vllm import SamplingParams
 import aioboto3
 import asyncio
 
@@ -170,9 +171,16 @@ def queue_data(data):
     writer_queues[queue_index].put(data)
 
 def evaluate_test_set(trainer, test_dataset, current_step):
-    """Evaluate test set using standard model inference"""
-    model = trainer.model
-    tokenizer = trainer.processing_class
+    """Use vLLM for efficient batch evaluation"""
+    sampling_params = SamplingParams(
+        max_tokens=786,
+        temperature=0.7,
+        top_p=0.8,
+        top_k=20,
+        skip_special_tokens=True
+    )
+
+    vllm_engine = trainer.llm
     
     prompts = []
     question_ids = []
@@ -183,58 +191,38 @@ def evaluate_test_set(trainer, test_dataset, current_step):
         question_ids.append(hashlib.md5(item['prompt'][-1]['content'].encode()).hexdigest())
         answers.append(item['answer'])
     
+    # Use the trainer's vLLM instance
+    outputs = vllm_engine.generate(prompts, sampling_params)
+    
     # Track correct predictions
     correct_count = 0
-    total_count = len(prompts)
+    total_count = len(outputs)
     
-    # Process outputs in batches
-    batch_size = 4  # Smaller batch size for memory efficiency
-    for i in range(0, total_count, batch_size):
-        batch_prompts = prompts[i:i + batch_size]
-        batch_ids = question_ids[i:i + batch_size]
-        batch_answers = answers[i:i + batch_size]
+    # Process outputs
+    for output, question_id, prompt, answer in zip(outputs, question_ids, prompts, answers):
+        response = output.outputs[0].text
+        extracted = extract_xml_answer(response)
         
-        # Tokenize inputs
-        inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True)
-        inputs = {k: v.to(model.device) for k, v in inputs.items()}
+        # Check if prediction matches answer
+        if extracted == answer:
+            correct_count += 1
         
-        # Generate responses
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=786,
-                temperature=0.7,
-                top_p=0.8,
-                top_k=20,
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id,
-            )
-        
-        # Decode outputs
-        responses = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        
-        # Process each response
-        for response, question_id, prompt, answer in zip(responses, batch_ids, batch_prompts, batch_answers):
-            extracted = extract_xml_answer(response)
-            
-            # Check if prediction matches answer
-            if extracted == answer:
-                correct_count += 1
-            
-            # Queue data for storage
-            queue_data((None, current_step, question_id, {
-                "id": question_id,
-                "step": current_step,
-                "question": prompt,
-                "answer": answer,
-                "response": response,
-                "extracted": extracted,
-                "split": "test"
-            }))
+        # Use the new queue_data function
+        queue_data((None, current_step, question_id, {
+            "id": question_id,
+            "step": current_step,
+            "question": prompt,
+            "answer": answer,
+            "response": response,
+            "extracted": extracted,
+            "split": "test"
+        }))
     
     # Calculate accuracy
     accuracy = correct_count / total_count
+
     return accuracy
+    
 
 class TestEvalCallback(TrainerCallback):
     def __init__(self, trainer, test_dataset):
@@ -268,7 +256,7 @@ training_args = GRPOConfig(
     logging_steps=1,
     bf16=True,
     per_device_train_batch_size=1,
-    gradient_accumulation_steps=8,
+    gradient_accumulation_steps=16,
     num_generations=16,
     max_prompt_length=256,
     max_completion_length=786,
@@ -277,9 +265,9 @@ training_args = GRPOConfig(
     max_grad_norm=0.1,
     report_to="wandb",
     log_on_each_node=False,
-    #use_vllm=True,  # Enable vLLM for faster generation
-    #vllm_device="cuda:1",
-    #vllm_gpu_memory_utilization=0.4,
+    use_vllm=True,  # Enable vLLM for faster generation
+    vllm_device="cuda:1",
+    vllm_gpu_memory_utilization=0.4,
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
@@ -294,8 +282,7 @@ model.max_model_len = 4096
 
 tokenizer = AutoTokenizer.from_pretrained(
     model_name,
-    padding_side='left',  # Set it directly in the initialization
-    trust_remote_code=True
+    trust_remote_code=True  # Added for loading local model
 )
 tokenizer.pad_token = tokenizer.eos_token
 
