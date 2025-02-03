@@ -211,3 +211,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # good vllm run: 20250201_190625
+    # good non-vllm run: 20250202_030620
