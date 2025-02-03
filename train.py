@@ -274,6 +274,7 @@ training_args = GRPOConfig(
     use_vllm=True,  # Enable vLLM for faster generation
     vllm_device="cuda:1",
     vllm_gpu_memory_utilization=0.4,
+    enforce_eager=True,  # Add this line to enforce eager execution in vLLM
 )
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
