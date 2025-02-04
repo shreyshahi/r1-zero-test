@@ -10,14 +10,14 @@ function App() {
     const loadRandomFile = async () => {
       try {
         // Fetch the manifest file that contains the list of all files
-        const manifestResponse = await fetch('/data/manifest.json');
+        const manifestResponse = await fetch('https://rl-test-set-progress-viewer.s3.amazonaws.com/data/manifest.json');
         const fileList = await manifestResponse.json();
         
         // Pick a random file from the list
         const randomFile = fileList[Math.floor(Math.random() * fileList.length)];
         
         // Fetch the content of the random file
-        const dataResponse = await fetch(`/data/${randomFile}`);
+        const dataResponse = await fetch(`https://rl-test-set-progress-viewer.s3.amazonaws.com/data/${randomFile}`);
         const data = await dataResponse.json();
         
         setCurrentData(data);
