@@ -56,8 +56,8 @@ function App() {
         // Skip system messages
         if (role.toLowerCase() === 'system') return null;
         
-        // Replace 'user' with 'question' and remove the format description prefix
-        const displayRole = role.toLowerCase() === 'user' ? 'question' : role;
+        // Replace 'user' with 'question' and 'assistant' with 'answer'
+        const displayRole = role.toLowerCase() === 'user' ? 'question' : 'answer';
         const displayContent = role.toLowerCase() === 'user' 
           ? content.replace('Use the format described in the system prompt to answer the following question: ', '')
           : content;
@@ -65,6 +65,7 @@ function App() {
         return (
           <div key={index} className={`message ${role}`}>
             <span className="role">{displayRole}:</span>
+            <br />
             <span className="content">{displayContent.split('\n').map((line, i) => (
               <React.Fragment key={i}>
                 {line}
