@@ -1,4 +1,6 @@
 .App {
+  max-width: 800px;
+  margin: 0 auto;
   padding: 1rem;
 }
 
@@ -117,18 +119,33 @@
 }
 
 .question-box {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0.5rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
 }
 
 .question-box h2 {
   font-size: 1rem;
-  margin: 0.5rem 0;
+  margin: 0 0 1rem 0;
 }
 
-.answer-box {
+.question-box h3 {
+  font-size: 1rem;
+  margin: 0;
+  color: #2e7d32;
+}
+
+.correct-answer {
   margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #ddd;
+}
+
+.correct-answer h3 {
+  font-size: 1rem;
+  margin: 0;
+  color: #2e7d32;
 }
 
 .slider-container {
@@ -158,4 +175,9 @@
 
 .refresh-button:hover {
   background-color: #e0e0e0;
+}
+
+.answer-box {
+  margin-top: 1rem;
+  padding: 0.5rem;
 }

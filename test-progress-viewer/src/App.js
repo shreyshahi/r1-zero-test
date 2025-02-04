@@ -52,13 +52,23 @@ function App() {
       if (segment.includes('<|start_header_id|>')) {
         const role = segment.split('<|start_header_id|>')[1].split('<|end_header_id|>')[0];
         const content = segment.split('<|end_header_id|>')[1];
+        
+        // Skip system messages
+        if (role.toLowerCase() === 'system') return null;
+        
+        // Replace 'user' with 'question' and remove the format description prefix
+        const displayRole = role.toLowerCase() === 'user' ? 'question' : role;
+        const displayContent = role.toLowerCase() === 'user' 
+          ? content.replace('Use the format described in the system prompt to answer the following question: ', '')
+          : content;
+        
         return (
           <div key={index} className={`message ${role}`}>
-            <span className="role">{role}:</span>
-            <span className="content">{content.split('\n').map((line, i) => (
+            <span className="role">{displayRole}:</span>
+            <span className="content">{displayContent.split('\n').map((line, i) => (
               <React.Fragment key={i}>
                 {line}
-                {i < content.split('\n').length - 1 && <br />}
+                {i < displayContent.split('\n').length - 1 && <br />}
               </React.Fragment>
             ))}</span>
           </div>
@@ -71,39 +81,37 @@ function App() {
   return (
     <div className="App">
       <h1>Question Viewer</h1>
-      <div className="two-column-layout">
-        <div className="column question-column">
-          <div className="question-box">
-            <h2>Question:</h2>
-            <div className="chat-messages">
-              {formatChatMessage(currentData.question)}
-            </div>
-          </div>
+      
+      <button onClick={() => window.location.reload()} className="refresh-button">
+        Load Another Question
+      </button>
+
+      <div className="chat-container">
+        <div className="chat-messages">
+          {formatChatMessage(currentData.question)}
         </div>
+      </div>
 
-        <div className="column answer-column">
-          <button onClick={() => window.location.reload()} className="refresh-button">
-            Load Another Question
-          </button>
+      <div className="slider-container">
+        <input
+          type="range"
+          min={0}
+          max={steps.length - 1}
+          value={currentStepIndex}
+          onChange={handleSliderChange}
+          className="slider"
+        />
+        <div className="step-label">Step: {currentStepIndex} out of {steps.length}</div>
+      </div>
 
-          <div className="slider-container">
-            <input
-              type="range"
-              min={0}
-              max={steps.length - 1}
-              value={currentStepIndex}
-              onChange={handleSliderChange}
-              className="slider"
-            />
-            <div className="step-label">Step: {currentStep} tokens</div>
+      <div className="response-container">
+        {currentData.steps[currentStep]?.response && (
+          <div className="step-response">
+            {formatChatMessage(currentData.steps[currentStep].response)}
           </div>
-
-          <div className="answer-box">
-            <h2>Response for Step {currentStep}:</h2>
-            <div className="chat-messages">
-              {formatChatMessage(currentData.steps[currentStep]?.response)}
-            </div>
-          </div>
+        )}
+        <div className="correct-answer">
+          <h3>Correct Answer: {currentData.answer}</h3>
         </div>
       </div>
     </div>
