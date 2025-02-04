@@ -80,7 +80,7 @@ function App() {
 
   return (
     <div className="App">
-      <h1>Question Viewer</h1>
+      <h1>RL Test Set Progress Viewer</h1>
       
       <button onClick={() => window.location.reload()} className="refresh-button">
         Load Another Question
@@ -101,7 +101,7 @@ function App() {
           onChange={handleSliderChange}
           className="slider"
         />
-        <div className="step-label">Step: {currentStepIndex} out of {steps.length}</div>
+        <div className="step-label">Step: {currentStep} out of 1500</div>
       </div>
 
       <div className="response-container">
