@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import React from 'react';
 
-const BASE_URL = 'https://rl-test-progress-viewer.s3.amazonaws.com';
+const BASE_URL = 'https://d15tjawjl9dif0.cloudfront.net';
 
 function App() {
   const [currentData, setCurrentData] = useState(null);
@@ -142,7 +142,7 @@ function App() {
         <p>
           Each example shown here comes from the test set, which was not used during training. The slider allows 
           you to see how the model's responses evolved throughout the training process (from step 0 to 1500). 
-          The illustrative problems slected here are the ones that the model got wrong in the early training steps. 
+          The illustrative problems selected here are the ones that the model got wrong in the early training steps. 
           You'll notice that in early training steps (near 0), the model's answers are mostly incorrect, but as 
           training progresses (towards 1500), the model learns to solve these problems correctly.
         </p>
