@@ -155,6 +155,29 @@
 .slider {
   width: 100%;
   margin-bottom: 0.5rem;
+  -webkit-appearance: none;
+  height: 25px;
+  background: #d3d3d3;
+  outline: none;
+  border-radius: 12px;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 35px;
+  height: 35px;
+  background: #4CAF50;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.slider::-moz-range-thumb {
+  width: 35px;
+  height: 35px;
+  background: #4CAF50;
+  cursor: pointer;
+  border-radius: 50%;
 }
 
 .step-label {
@@ -180,4 +203,20 @@
 .answer-box {
   margin-top: 1rem;
   padding: 0.5rem;
+}
+
+.info-section {
+  margin-top: 2rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.info-section h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: #333;
 }

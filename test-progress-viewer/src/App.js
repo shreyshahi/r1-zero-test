@@ -2,22 +2,33 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import React from 'react';
 
+const BASE_URL = 'https://rl-test-progress-viewer.s3.amazonaws.com';
+
 function App() {
   const [currentData, setCurrentData] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const loadRandomFile = async () => {
       try {
-        // Fetch the manifest file that contains the list of all files
-        const manifestResponse = await fetch('https://rl-test-set-progress-viewer.s3.amazonaws.com/data/manifest.json');
+        // Log the URL we're trying to fetch
+        console.log(`Fetching manifest from: ${BASE_URL}/data/manifest.json`);
+        
+        const manifestResponse = await fetch(`${BASE_URL}/data/manifest.json`);
+        if (!manifestResponse.ok) {
+          throw new Error(`Manifest fetch failed with status: ${manifestResponse.status}`);
+        }
         const fileList = await manifestResponse.json();
         
         // Pick a random file from the list
         const randomFile = fileList[Math.floor(Math.random() * fileList.length)];
+        console.log(`Fetching data from: ${BASE_URL}/data/${randomFile}`);
         
-        // Fetch the content of the random file
-        const dataResponse = await fetch(`https://rl-test-set-progress-viewer.s3.amazonaws.com/data/${randomFile}`);
+        const dataResponse = await fetch(`${BASE_URL}/data/${randomFile}`);
+        if (!dataResponse.ok) {
+          throw new Error(`Data fetch failed with status: ${dataResponse.status}`);
+        }
         const data = await dataResponse.json();
         
         setCurrentData(data);
@@ -26,11 +37,16 @@ function App() {
         setCurrentStep(steps[0]);
       } catch (error) {
         console.error('Error loading data:', error);
+        setError(error.message);
       }
     };
 
     loadRandomFile();
   }, []);
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
   if (!currentData) {
     return <div>Loading...</div>;
@@ -114,6 +130,26 @@ function App() {
         <div className="correct-answer">
           <h3>Correct Answer: {currentData.answer}</h3>
         </div>
+      </div>
+
+      <div className="info-section">
+        <h2>About This Viewer</h2>
+        <p>
+          This viewer demonstrates the learning progress of a fine-tuned Llama 3.2 1B model trained using GRPO 
+          (Group relative policy optimization) on the GSM8K dataset - a collection of 
+          grade school math problems.
+        </p>
+        <p>
+          Each example shown here comes from the test set, which was not used during training. The slider allows 
+          you to see how the model's responses evolved throughout the training process (from step 0 to 1500). 
+          The illustrative problems slected here are the ones that the model got wrong in the early training steps. 
+          You'll notice that in early training steps (near 0), the model's answers are mostly incorrect, but as 
+          training progresses (towards 1500), the model learns to solve these problems correctly.
+        </p>
+        <p>
+          Use the slider to move between training steps and observe how the model's problem-solving ability 
+          improves over time. Click "Load Another Question" to see a different example from the test set.
+        </p>
       </div>
     </div>
   );
