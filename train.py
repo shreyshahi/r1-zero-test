@@ -245,7 +245,7 @@ class TestEvalCallback(TrainerCallback):
             accuracy = evaluate_test_set(self.trainer, self.test_dataset, state.global_step)
             self.trainer.log({"eval/accuracy": accuracy, "step": state.global_step})
 
-model_name = "llama1b"  # Path to local model folder
+model_name = "qwen0.5"  # Path to local model folder
 
 output_dir = "outputs/Llama-1B-GRPO"
 run_name = "Llama-1B-GRPO-gsm8k"
